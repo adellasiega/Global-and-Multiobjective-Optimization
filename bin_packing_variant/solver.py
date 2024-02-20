@@ -149,7 +149,6 @@ class GeneticBrickSolver():
         
         return child1, child2
     
-    
     def mutation(self, individual):
         '''
             Method to perform a mutation.
@@ -264,9 +263,6 @@ class GeneticBrickSolver():
                         current_height = self.brick_heights[current_brick]
                         ax[idx_individual].bar(idx_col, current_height, bottom=column_height, color=cm.jet(current_brick/len(self.brick_heights)))
                         column_height += current_height
-                        #ax[idx_individual].text(idx_col, column_height-current_height/2, f"{current_height}", ha='center', va='center')
-                    #ax[idx_individual].text(idx_col, column_height, f"{column_height:5.1}", ha='center', va='bottom')    
-                
             plt.show()
         
         interact(print_results, generation=widgets.IntSlider(min=0,max=len(self.history)-1,step=1,value=1))
