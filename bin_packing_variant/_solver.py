@@ -5,8 +5,12 @@ import random
 
 class GeneticBrickSolver():
     
-    def __init__(self, population_size, mutation_rate, crossover_rate, max_generations, tournament_size, k_elitism):
+    def __init__(self, population_size, mutation_rate, crossover_rate, max_generations, tournament_size, k_elitism, random_seed):
         
+        # Set the random seed
+        random.seed(random_seed)
+        np.random.seed(random_seed)
+
         # Parameters of the genetic algorithm
         self.population_size = population_size
         self.mutation_rate = mutation_rate
@@ -22,6 +26,7 @@ class GeneticBrickSolver():
         self.best_individual = None
         self.best_fitness = np.infty  
         self.history = [] # list of the best individual and its fitness for each generation
+        self.delta = -np.infty
     
         # Specs of the problem
         self.columns_per_individual = None
@@ -36,12 +41,14 @@ class GeneticBrickSolver():
         '''
         H = sum(self.brick_heights[brick] for brick in column)
         return H
+    
 
     def is_odd(self, number):
         '''
             Method to check if a number is odd.
         '''
         return number & 1
+    
 
     def fitness(self, individual):
         '''
@@ -54,18 +61,17 @@ class GeneticBrickSolver():
         hight_min = self.column_height(column_min)
         hight_max = self.column_height(column_max)
         return hight_max - hight_min
+    
 
     def fitness_norm(self, individual):
         '''
             Method to calculate the normalized fitness of an individual.
             The normalized fitness of an individual is the difference 
-            between its highest column and its shortest one, divided by high of the talles column.
+            between its highest column and its shortest one, divided by mean hight of the bricks.
         '''
-        column_min = min(individual, key=self.column_height)
-        column_max = max(individual, key=self.column_height)
-        hight_min = self.column_height(column_min)
-        hight_max = self.column_height(column_max)
-        return (hight_max - hight_min) / hight_max
+        mean_brick_hight = np.mean(self.brick_heights)
+        return self.fitness(individual) / mean_brick_hight
+
 
     def generate_random_individual(self):
         '''
@@ -82,6 +88,7 @@ class GeneticBrickSolver():
             individual.append(column)
         return individual
 
+
     def check_individual(self, individual):
         '''
             Method to check if an individual is feasible.
@@ -95,6 +102,7 @@ class GeneticBrickSolver():
                 bricks.append(brick)
         return True
     
+
     def initialize_population(self):
         '''
             Method to randomly generate the initial population.
@@ -216,20 +224,34 @@ class GeneticBrickSolver():
             new_population.append(child2)
 
         #Update population
-        
         self.population = copy.deepcopy(new_population)
 
-    def update_best(self, generation):
+
+    def update_best(self, generation, termination_criterium=None):
         '''
-            Update the best individual and its fitness
+            Update the best individual and its fitness.
+            The delta value for the termination criterion is also updated.
         '''
+
+        last_best_fitness = self.best_fitness
+
         for individual in self.population:
             current_fitness = self.fitness(individual)
             if current_fitness < self.best_fitness:
                 self.best_fitness = current_fitness
                 self.best_individual = copy.deepcopy(individual)
 
+        if termination_criterium is not None:
+            
+            if termination_criterium == 'improvement':
+                if self.best_fitness - last_best_fitness < 0:
+                    self.delta = self.best_fitness - last_best_fitness
+            
+            elif termination_criterium == 'stagnation':
+                    self.delta = -np.std([self.fitness(individual) for individual in self.population])
+
         record = (generation, self.population, self.best_individual, self.best_fitness)
+
         self.history.append(record)
 
         
@@ -240,14 +262,47 @@ class GeneticBrickSolver():
         self.columns_per_individual = columns_per_individual
         self.bricks_per_column = bricks_per_column
         self.brick_heights = brick_heights
-
+        #Initialize the population
         self.initialize_population()
         self.update_best(0)        
         for i in range(self.max_generations):
             #print a string to show the progress of the algorithm
-            print(f'Generation {i+1}/{self.max_generations} ({100*(i+1)/self.max_generations}%)', end='\r')
+            print(f'Generation {i+1}/{self.max_generations}', end='\r')
             self.generate_new_population()
             self.update_best(i+1)
+
+
+    def solve_stopping_criterium(self, brick_heights, columns_per_individual, bricks_per_column, termination_criterium, T):
+        '''
+            Method to solve the problem, we use a stopping cirterium.
+        '''
+
+        self.columns_per_individual = columns_per_individual
+        self.bricks_per_column = bricks_per_column
+        self.brick_heights = brick_heights
+
+        # Initialize the population
+        self.initialize_population()
+        self.update_best(0)
+
+        # Initialize the generation counter
+        i = 1
+        conditions_unmet = True
     
+        while conditions_unmet:
+            # Print a string to show the progress of the algorithm
+            print(f'Generation {i}/{self.max_generations}', end='\r')
+            
+            # Check if the stopping criterium is met
+            p_stop = np.exp(self.delta/T)
+            if i == self.max_generations or np.random.rand() < p_stop :
+                conditions_unmet = False
+
+            # Generate a new population
+            self.generate_new_population()
+            self.update_best(i, termination_criterium)
+            i += 1
+
+
     # Import the visualization functions
     from _visualization import plot_fitness, plot_population, plot_best_individual
