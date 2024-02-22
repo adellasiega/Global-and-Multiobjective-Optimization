@@ -303,6 +303,5 @@ class GeneticBrickSolver():
             self.update_best(i, termination_criterium)
             i += 1
 
-
     # Import the visualization functions
     from _visualization import plot_fitness, plot_population, plot_best_individual
